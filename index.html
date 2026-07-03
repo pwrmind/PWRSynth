@@ -597,7 +597,7 @@
             }
             connectedCallback() {
                 this.render();
-                // Ленивая инициализация по первому взаимодействию
+                // Ленивая инициализация с захватом событий (capture)
                 const start = () => {
                     if (!this.audioCtx) {
                         const AudioContextClass = window.AudioContext || window.webkitAudioContext;
@@ -607,9 +607,10 @@
                     }
                     if (this.audioCtx.state === 'suspended') this.audioCtx.resume();
                 };
-                window.addEventListener('mousedown', start, { once: true });
-                window.addEventListener('keydown', start, { once: true });
-                window.addEventListener('touchstart', start, { once: true });
+                // ВАЖНО: capture: true, чтобы старт произошёл до обработки события на целевых элементах
+                window.addEventListener('mousedown', start, { once: true, capture: true });
+                window.addEventListener('keydown', start, { once: true, capture: true });
+                window.addEventListener('touchstart', start, { once: true, capture: true });
             }
             render() {
                 this.shadowRoot.innerHTML = `
