@@ -1,1 +1,1 @@
-# pwr_synth
+# PWRSynth
