@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>Pwrmind Modular Synth</title>
     <style>
-        /* Глобальный фон и сброс */
         body {
             background: #09090b;
             color: #fff;
@@ -21,7 +20,6 @@
         * {
             box-sizing: border-box;
         }
-        /* Стили для slotted контейнеров */
         .modules-row {
             display: flex;
             gap: 15px;
@@ -34,7 +32,6 @@
             justify-content: center;
             width: 100%;
         }
-        /* Адаптив */
         @media (max-width: 700px) {
             .modules-row { gap: 10px; }
         }
@@ -42,15 +39,11 @@
 </head>
 <body>
 
-    <!-- ============================================================ -->
-    <!-- 1. ОПРЕДЕЛЕНИЯ ВЕБ-КОМПОНЕНТОВ (все в одном скрипте)          -->
-    <!-- ============================================================ -->
     <script>
         // -----------------------------------------------------------------
         // АТОМЫ
         // -----------------------------------------------------------------
 
-        // ---------- Крутилка ----------
         class PwrmindKnob extends HTMLElement {
             constructor() {
                 super();
@@ -67,7 +60,6 @@
                 this.onMouseMove = this.onMouseMove.bind(this);
                 this.onMouseUp = this.onMouseUp.bind(this);
                 this.shadowRoot.getElementById('knob-container').addEventListener('mousedown', (e) => this.onMouseDown(e));
-                // Touch support
                 this.shadowRoot.getElementById('knob-container').addEventListener('touchstart', (e) => {
                     e.preventDefault();
                     const touch = e.touches[0];
@@ -135,7 +127,6 @@
         }
         customElements.define('pwrmind-knob', PwrmindKnob);
 
-        // ---------- Вертикальный слайдер ----------
         class PwrmindSlider extends HTMLElement {
             constructor() {
                 super();
@@ -222,7 +213,6 @@
         }
         customElements.define('pwrmind-slider', PwrmindSlider);
 
-        // ---------- Клавиша пианино ----------
         class PwrmindKey extends HTMLElement {
             constructor() {
                 super();
@@ -232,7 +222,6 @@
             connectedCallback() {
                 this.render();
                 const key = this.shadowRoot.getElementById('key');
-                // Pointer Events для мыши и тача
                 key.addEventListener('pointerdown', (e) => {
                     e.preventDefault();
                     key.setPointerCapture(e.pointerId);
@@ -244,7 +233,6 @@
                     this.triggerNoteOff();
                 });
                 key.addEventListener('pointercancel', () => this.triggerNoteOff());
-                // Доп. защита от скролла
                 key.addEventListener('touchstart', (e) => e.preventDefault(), { passive: false });
             }
             triggerNoteOn() {
@@ -291,7 +279,6 @@
         }
         customElements.define('pwrmind-key', PwrmindKey);
 
-        // ---------- Светодиод ----------
         class PwrmindLed extends HTMLElement {
             constructor() {
                 super();
@@ -317,7 +304,6 @@
         }
         customElements.define('pwrmind-led', PwrmindLed);
 
-        // ---------- Осциллограф (дисплей) ----------
         class PwrmindDisplay extends HTMLElement {
             constructor() {
                 super();
@@ -379,7 +365,6 @@
         }
         customElements.define('pwrmind-display', PwrmindDisplay);
 
-        // ---------- Переключатель (тумблер) ----------
         class PwrmindSwitch extends HTMLElement {
             constructor() {
                 super();
@@ -429,7 +414,6 @@
         }
         customElements.define('pwrmind-switch', PwrmindSwitch);
 
-        // ---------- Кнопка с LED ----------
         class PwrmindButton extends HTMLElement {
             constructor() {
                 super();
@@ -492,7 +476,6 @@
         // МОЛЕКУЛЫ
         // -----------------------------------------------------------------
 
-        // ---------- Панель ----------
         class PwrmindPanel extends HTMLElement {
             constructor() {
                 super();
@@ -539,7 +522,6 @@
         }
         customElements.define('pwrmind-panel', PwrmindPanel);
 
-        // ---------- Клавиатурный ряд ----------
         class PwrmindKeyboard extends HTMLElement {
             constructor() {
                 super();
@@ -597,7 +579,6 @@
             }
             connectedCallback() {
                 this.render();
-                // Ленивая инициализация с захватом событий (capture)
                 const start = () => {
                     if (!this.audioCtx) {
                         const AudioContextClass = window.AudioContext || window.webkitAudioContext;
@@ -607,7 +588,6 @@
                     }
                     if (this.audioCtx.state === 'suspended') this.audioCtx.resume();
                 };
-                // ВАЖНО: capture: true, чтобы старт произошёл до обработки события на целевых элементах
                 window.addEventListener('mousedown', start, { once: true, capture: true });
                 window.addEventListener('keydown', start, { once: true, capture: true });
                 window.addEventListener('touchstart', start, { once: true, capture: true });
@@ -642,15 +622,28 @@
             buildPipeline() {
                 const slot = this.shadowRoot.querySelector('slot[name="modules"]');
                 const assigned = slot.assignedElements();
-                // Ищем все элементы с методом initAudio
-                this.modules = assigned.filter(el => typeof el.initAudio === 'function');
+                // Рекурсивно собираем все элементы с методом initAudio
+                this.modules = [];
+                const findModules = (nodes) => {
+                    nodes.forEach(el => {
+                        if (typeof el.initAudio === 'function') {
+                            this.modules.push(el);
+                        }
+                        // Обрабатываем детей, даже если они внутри теневого DOM? Нет, все модули в световом DOM.
+                        // Просто обходим дочерние элементы
+                        if (el.children) {
+                            findModules(Array.from(el.children));
+                        }
+                    });
+                };
+                findModules(assigned);
 
                 if (this.modules.length === 0) return;
 
                 // Инициализация каждого модуля
                 this.modules.forEach(mod => mod.initAudio(this.audioCtx));
 
-                // Соединение последовательно: выход предыдущего -> вход следующего
+                // Соединение последовательно
                 for (let i = 0; i < this.modules.length - 1; i++) {
                     const cur = this.modules[i];
                     const next = this.modules[i + 1];
@@ -672,7 +665,6 @@
                 this.display = document.querySelector('pwrmind-display');
                 this.led = document.querySelector('#gate-led');
                 if (this.display) {
-                    // Принудительно обновляем размер canvas
                     setTimeout(() => this.display.resizeCanvas(), 50);
                 }
             }
@@ -684,7 +676,6 @@
                     this.animationId = requestAnimationFrame(update);
                     this.analyser.getByteTimeDomainData(dataArray);
                     if (this.display) this.display.draw(dataArray);
-                    // LED яркость по RMS
                     if (this.led) {
                         let sumSq = 0;
                         for (let i = 0; i < dataArray.length; i++) {
@@ -708,7 +699,6 @@
         // АУДИО-МОДУЛИ
         // -----------------------------------------------------------------
 
-        // ---------- VCO (генератор + ADSR) ----------
         class PwrmindVco extends HTMLElement {
             constructor() {
                 super();
@@ -729,10 +719,8 @@
             }
             connectedCallback() { this.render(); }
             setupListeners() {
-                // Слушаем ноты от клавиатуры
                 document.body.addEventListener('note-on', (e) => this.triggerNoteOn(e.detail.note));
                 document.body.addEventListener('note-off', (e) => this.triggerNoteOff(e.detail.note));
-                // Слушаем свои ручки
                 this.shadowRoot.addEventListener('change', (e) => {
                     const val = e.detail.value;
                     switch (e.target.id) {
@@ -788,7 +776,6 @@
         }
         customElements.define('pwrmind-vco', PwrmindVco);
 
-        // ---------- VCF (фильтр + LFO) ----------
         class PwrmindVcf extends HTMLElement {
             constructor() {
                 super();
@@ -805,13 +792,11 @@
                 this.audioCtx = audioCtx;
                 const now = audioCtx.currentTime;
 
-                // Основной фильтр
                 this.filterNode = audioCtx.createBiquadFilter();
                 this.filterNode.type = 'lowpass';
                 this.filterNode.frequency.setValueAtTime(this.cutoff, now);
                 this.filterNode.Q.setValueAtTime(this.resonance, now);
 
-                // LFO для модуляции частоты фильтра
                 this.lfoNode = audioCtx.createOscillator();
                 this.lfoGain = audioCtx.createGain();
                 this.lfoNode.type = 'sine';
@@ -821,7 +806,6 @@
                 this.lfoGain.connect(this.filterNode.frequency);
                 this.lfoNode.start(now);
 
-                // Вход и выход модуля
                 this.input = this.filterNode;
                 this.output = this.filterNode;
 
@@ -865,7 +849,6 @@
         }
         customElements.define('pwrmind-vcf', PwrmindVcf);
 
-        // ---------- Delay ----------
         class PwrmindFxDelay extends HTMLElement {
             constructor() {
                 super();
@@ -885,7 +868,6 @@
                 this.feedbackGain.gain.setValueAtTime(0.4, now);
                 this.mixGain.gain.setValueAtTime(0.3, now);
 
-                // Параллельный микс
                 this.input.connect(this.output);
                 this.input.connect(this.delayNode);
                 this.delayNode.connect(this.feedbackGain);
@@ -925,7 +907,6 @@
         }
         customElements.define('pwrmind-fx-delay', PwrmindFxDelay);
 
-        // ---------- Reverb ----------
         class PwrmindFxReverb extends HTMLElement {
             constructor() {
                 super();
@@ -1103,20 +1084,17 @@
     <!-- 2. РАЗМЕТКА ПРИЛОЖЕНИЯ                                       -->
     <!-- ============================================================ -->
     <pwrmind-chassis>
-        <!-- Слот модулей – порядок определяет цепочку звука -->
         <div slot="modules" class="modules-row">
             <pwrmind-vco></pwrmind-vco>
             <pwrmind-vcf></pwrmind-vcf>
             <pwrmind-fx-delay></pwrmind-fx-delay>
             <pwrmind-fx-reverb></pwrmind-fx-reverb>
-            <!-- Отдельная панель с дисплеем и LED (не аудиомодуль, но для мониторинга) -->
             <pwrmind-panel title="Monitor">
                 <pwrmind-display></pwrmind-display>
                 <pwrmind-led color="#00f5ff" label="Gate" id="gate-led"></pwrmind-led>
             </pwrmind-panel>
         </div>
 
-        <!-- Слот клавиатуры -->
         <pwrmind-keyboard slot="keyboard" class="keyboard-wrapper">
             <pwrmind-key note="C4" color="white"></pwrmind-key>
             <pwrmind-key note="C#4" color="black"></pwrmind-key>
